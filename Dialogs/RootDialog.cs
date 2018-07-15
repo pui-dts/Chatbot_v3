@@ -1,31 +1,71 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Connector;
+using BotApplication.Dialogs;
 
 namespace BotApplication.Dialogs
 {
     [Serializable]
     public class RootDialog : IDialog<object>
     {
-        public Task StartAsync(IDialogContext context)
-        {
-            context.Wait(MessageReceivedAsync);
+        private User user = new User();
 
-            return Task.CompletedTask;
+        private string language;
+
+        public async Task StartAsync(IDialogContext context)
+        {
+            context.Wait(this.MessageReceivedAsync);
+           
+
         }
 
         private async Task MessageReceivedAsync(IDialogContext context, IAwaitable<object> result)
         {
-            var activity = await result as Activity;
+            PromptDialog.Choice(context, this.OnlanguageSelected, new List<string>() { "ไทย", "English" }, $"Please select Language", "Have no your choice", 3);
 
-            // Calculate something for us to return
-            int length = (activity.Text ?? string.Empty).Length;
+        }
 
-            // Return our reply to the user
-            await context.PostAsync($"You sent {activity.Text} which was {length} characters");
+        private async Task OnlanguageSelected(IDialogContext context, IAwaitable<String> result)
+        {
+            this.language = await result;
+            
+            try
+            {
+                switch (language) {
+                    case "ไทย":
 
-            context.Wait(MessageReceivedAsync);
+
+                    context.Call(new ThaiDialog(this.user), this.ThaiDialogResumeAfter);
+                        break;
+
+
+                    case "English":
+                        
+                            context.Call(new EnglishDialog(this.user), this.EnglishDialogResumeAfter);
+
+                        break;
+                }
+
+            }
+            catch (TooManyAttemptsException ex)
+            {
+                context.Fail(new TooManyAttemptsException("Please try again."));
+            }
+        }
+
+        private async Task ThaiDialogResumeAfter(IDialogContext context, IAwaitable<string> result)
+        {
+            var end = await result;
+            await context.PostAsync(end);
+        }
+
+        private async Task EnglishDialogResumeAfter(IDialogContext context, IAwaitable<string> result)
+        {
+
+            var end = await result;
+            await context.PostAsync(end);
         }
     }
 }
